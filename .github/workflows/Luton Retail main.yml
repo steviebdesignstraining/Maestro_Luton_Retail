@@ -21,34 +21,34 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Install Android SDK and launch emulator
-      uses: reactivecircus/android-emulator-runner@v2
-      with:
-        api-level: 30
-        target: google_apis
-        arch: x86_64
-        profile: pixel_4
-        emulator-options: "-no-window -no-audio -no-boot-anim -no-metrics"
-        disable-animations: true
-        script: echo "Emulator is ready"
+    - name: Install Android SDK
+      uses: android-actions/setup-android@v3
 
-    - name: Wait for Android Emulator to boot completely
+    - name: Create Android Emulator
       run: |
-        echo "Waiting for emulator to connect to adb..."
+        echo "y" | sdkmanager "system-images;android-30;google_apis;x86_64"
+        echo "no" | avdmanager create avd -n testEmulator -k "system-images;android-30;google_apis;x86_64" --device "pixel"
+
+    - name: Start Emulator
+      run: |
+        nohup emulator -avd testEmulator -no-audio -no-window -no-boot-anim -no-snapshot -no-metrics > emulator.log 2>&1 &
         adb wait-for-device
+
+    - name: Wait for Emulator to Boot
+      run: |
         boot_completed=""
         until [[ "$boot_completed" == "1" ]]; do
-          boot_completed=$(adb -e shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
-          echo "boot_completed=$boot_completed"
+          boot_completed=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+          echo "Waiting for emulator to fully boot... ($boot_completed)"
           sleep 5
         done
-        echo "✅ Emulator booted and ready."
+        echo "✅ Emulator is ready."
 
     - name: Download APK from GitHub Release
       uses: dsaltares/fetch-gh-release-asset@master
       with:
         repo: ${{ github.repository }}
-        file: your-app-release.apk    # ⬅️ CHANGE to your actual release file
+        file: your-app-release.apk    # ⬅️ CHANGE to your actual file
         token: ${{ secrets.GITHUB_TOKEN }}
         target: app.apk
 
@@ -63,7 +63,7 @@ jobs:
       run: |
         maestro test .maestro --app app.apk
 
-    - name: Upload test output
+    - name: Upload Maestro Test Output
       if: always()
       uses: actions/upload-artifact@v4
       with:
