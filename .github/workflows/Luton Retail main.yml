@@ -1,0 +1,54 @@
+name: Android UI Tests with Maestro
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  maestro-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Start Android Emulator
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 30
+        target: google_apis
+        arch: x86_64
+        profile: pixel_4
+        emulator-options: "-no-window -no-audio"
+        disable-animations: true
+        script: echo "Emulator is ready"
+
+    - name: Download LutonRetail.apk from GitHub Release
+      run: |
+        curl -L -o app.apk \
+        https://github.com/steviebdesignstraining/Maestro_Luton_Retail/releases/download/v1.0.0/LutonRetail.apk
+
+    - name: Install Maestro
+      run: |
+        curl -Ls "https://get.maestro.mobile.dev" | bash
+        echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+    - name: Run Maestro test
+      run: |
+        maestro test .maestro --app app.apk
+
+    - name: Upload test output (optional)
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: maestro-test-output
+        path: .maestro/output/
