@@ -1,54 +1,114 @@
-name: Android UI Tests with Maestro
+name: Run Android E2E Tests
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  maestro-test:
+  e2e-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Set up Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
 
-    - name: Start Android Emulator
-      uses: reactivecircus/android-emulator-runner@v2
-      with:
-        api-level: 30
-        target: google_apis
-        arch: x86_64
-        profile: pixel_4
-        emulator-options: "-no-window -no-audio"
-        disable-animations: true
-        script: echo "Emulator is ready"
+      - name: Move fsevents to optionalDependencies (CI fix)
+        working-directory: ./wdio-appium-project
+        run: |
+          sudo apt-get install jq -y
+          jq 'if .dependencies["fsevents"] then
+                .optionalDependencies["fsevents"] = .dependencies["fsevents"] |
+                del(.dependencies["fsevents"])
+              else . end' package.json > tmp.json
+          mv tmp.json package.json
 
-    - name: Download LutonRetail.apk from GitHub Release
-      run: |
-        curl -L -o app.apk \
-        https://github.com/steviebdesignstraining/Maestro_Luton_Retail/releases/download/v1.0.0/LutonRetail.apk
+      - name: Install dependencies
+        working-directory: ./wdio-appium-project
+        run: npm install
 
-    - name: Install Maestro
-      run: |
-        curl -Ls "https://get.maestro.mobile.dev" | bash
-        echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+      - name: Set up Android Emulator and Run Tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: arm
+          profile: Nexus 6
+          emulator-options: "-no-window -no-audio -no-snapshot -no-boot-anim -no-metrics"
+          disable-animations: true
+          script: |
+            set -e
+            wget https://github.com/steviebdesignstraining/Stadion_Luton_Retail_WebdriverIO/releases/download/v1.0.0/LutonRetail.apk -O ./wdio-appium-project/app.apk
+            cd wdio-appium-project
 
-    - name: Run Maestro test
-      run: |
-        maestro test .maestro --app app.apk
+            echo "Waiting for emulator to fully boot and come online..."
+            attempts=0
+            max_attempts=10
 
-    - name: Upload test output (optional)
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: maestro-test-output
-        path: .maestro/output/
+            while [[ $attempts -lt $max_attempts ]]; do
+              echo "Attempt $((attempts+1)) to check emulator boot status..."
+              adb kill-server || true
+              adb start-server || true
+              adb wait-for-device || true
+              sleep 5
+              status=$(adb -s emulator-5554 shell getprop sys.boot_completed | tr -d '\r')
+              online=$(adb devices | grep emulator-5554 | grep -v offline || true)
+
+              if [[ "$status" == "1" && -n "$online" ]]; then
+                echo "Emulator is booted and online."
+                break
+              fi
+
+              echo "Emulator not ready. Retrying..."
+              sleep 15
+              attempts=$((attempts + 1))
+            done
+
+            if [[ $attempts -eq $max_attempts ]]; then
+              echo "Emulator did not become online in time. Failing."
+              adb devices
+              exit 1
+            fi
+
+            echo "Starting E2E tests..."
+            npx wdio run wdio.conf.js
+
+      - name: Install Allure commandline
+        run: npm install -g allure-commandline --save-dev
+
+      - name: Generate Allure report
+        working-directory: ./wdio-appium-project
+        run: |
+          allure generate allure-results --clean -o allure-report
+
+      - name: Upload Allure report as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: wdio-appium-project/allure-report
+
+      - name: Deploy Allure report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./wdio-appium-project/allure-report
+          force_orphan: true
+
+      # Optional: Notify Slack (set SLACK_WEBHOOK_URL secret in repo)
+      - name: Send Slack Notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,job
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
