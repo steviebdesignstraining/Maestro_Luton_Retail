@@ -1,11 +1,3 @@
-name: Android UI Tests with Maestro
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
 jobs:
   maestro-test:
     runs-on: ubuntu-latest
@@ -24,31 +16,44 @@ jobs:
     - name: Install Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Create Android Emulator
+    - name: Install system image
       run: |
         echo "y" | sdkmanager "system-images;android-30;google_apis;x86_64"
         echo "no" | avdmanager create avd -n testEmulator -k "system-images;android-30;google_apis;x86_64" --device "pixel"
 
-    - name: Start Emulator
+    - name: Start X virtual framebuffer
       run: |
-        nohup emulator -avd testEmulator -no-audio -no-window -no-boot-anim -no-snapshot -no-metrics > emulator.log 2>&1 &
-        adb wait-for-device
+        sudo apt-get update
+        sudo apt-get install -y xvfb
+        export DISPLAY=:0
+        nohup Xvfb :0 -screen 0 1080x1920x24 > /dev/null 2>&1 &
+        sleep 3
 
-    - name: Wait for Emulator to Boot
+    - name: Launch emulator
+      env:
+        DISPLAY: :0
       run: |
+        nohup emulator -avd testEmulator -no-audio -no-boot-anim -no-snapshot -no-window -gpu swiftshader_indirect > emulator.log 2>&1 &
+        sleep 10
+        adb devices
+
+    - name: Wait for emulator to boot
+      run: |
+        echo "Waiting for emulator to fully boot..."
         boot_completed=""
         until [[ "$boot_completed" == "1" ]]; do
+          adb devices
           boot_completed=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
-          echo "Waiting for emulator to fully boot... ($boot_completed)"
+          echo "boot_completed=$boot_completed"
           sleep 5
         done
-        echo "✅ Emulator is ready."
+        echo "✅ Emulator booted."
 
     - name: Download APK from GitHub Release
       uses: dsaltares/fetch-gh-release-asset@master
       with:
         repo: ${{ github.repository }}
-        file: your-app-release.apk    # ⬅️ CHANGE to your actual file
+        file: your-app-release.apk    # ⬅️ Change this to your actual APK name
         token: ${{ secrets.GITHUB_TOKEN }}
         target: app.apk
 
@@ -63,7 +68,7 @@ jobs:
       run: |
         maestro test .maestro --app app.apk
 
-    - name: Upload Maestro Test Output
+    - name: Upload test artifacts
       if: always()
       uses: actions/upload-artifact@v4
       with:
