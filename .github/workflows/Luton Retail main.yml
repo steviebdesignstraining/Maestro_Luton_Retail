@@ -1,3 +1,11 @@
+name: Android UI Tests with Maestro
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
 jobs:
   maestro-test:
     runs-on: ubuntu-latest
@@ -53,7 +61,7 @@ jobs:
       uses: dsaltares/fetch-gh-release-asset@master
       with:
         repo: ${{ github.repository }}
-        file: your-app-release.apk    # ⬅️ Change this to your actual APK name
+        file: your-app-release.apk    # ⬅️ Update this to match your actual APK name
         token: ${{ secrets.GITHUB_TOKEN }}
         target: app.apk
 
@@ -68,7 +76,7 @@ jobs:
       run: |
         maestro test .maestro --app app.apk
 
-    - name: Upload test artifacts
+    - name: Upload Maestro Test Output
       if: always()
       uses: actions/upload-artifact@v4
       with:
