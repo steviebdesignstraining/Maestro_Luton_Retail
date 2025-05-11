@@ -1,0 +1,84 @@
+appId: com.ltfc.dev
+---
+- launchApp:
+    appId: com.ltfc.dev
+- tapOn: 'Store'
+- tapOn:
+    point: "10%,15%"
+- assertVisible:
+    text: "Kits & Jersey"
+    index: 1
+- assertVisible:
+    text: "Training"
+    index: 1
+- assertVisible:
+    text: "Image fallback"
+    index: 1
+- tapOn:
+    point: "93%,9%"
+# - waitForTimeout: 10000
+# Navigate between Carousel images
+- assertVisible:
+    text: "PROMO WITH NO JSON PRODUCT"
+- tapOn:
+    point: "50%,69%"
+- assertVisible:
+    text: "THIS MAIN TITLE. OVERRIDES TITLE IN PRODUCT FIELD."
+- scrollUntilVisible:
+    element:
+      text: "23/24 Home Wom Shirt, £59.00"
+    direction: DOWN
+- tapOn: "23/24 Home Wom Shirt, £59.00"
+- scrollUntilVisible:
+    element:
+      text: "12"
+    direction: DOWN
+- tapOn:
+    text: "12"
+    index: 1
+- scrollUntilVisible:
+    element:
+      text: "Add to Basket"
+    direction: DOWN
+- tapOn:
+    text: "Add to Basket"
+    index: 1
+- assertVisible:
+    text: "Item successfully added to basket"
+    index: 1
+- tapOn:
+    point: "70%,9%"
+- assertVisible: "Basket"
+- assertVisible: "23/24 Home Wom Shirt - ORANGE"
+- scrollUntilVisible:
+    element:
+      text: "Proceed to Checkout"
+    direction: DOWN
+- tapOn:
+    text: "Proceed to Checkout"
+    index: 1
+# - tapOn:
+#     text: "Sign In"
+#     index: 1
+- runFlow:
+    when:
+      visible: "Sign In"
+    commands:
+      - tapOn: 
+            text: "Sign In"
+            index: 1
+- runFlow:
+    when:
+      visible: "Use without an account"
+    commands:
+      - tapOn: "Use without an account"
+- runFlow:
+    when:
+      visible: "Login to your LTFC Club Account"
+    commands:
+      - tapOn: "Email"
+      - inputText: "stephen.bennett@stadion.io"
+      - tapOn: "Password"
+      - inputText: "Stadion123!"
+      - tapOn: "Submit "
+- assertVisible: "Delivery Address"
