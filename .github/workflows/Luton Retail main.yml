@@ -2,9 +2,9 @@ name: Android UI Tests with Maestro
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   maestro-test:
@@ -15,81 +15,20 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Set up Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-
-    - name: Install Android SDK
-      uses: android-actions/setup-android@v3
-
-    - name: Install system image
-      run: |
-        echo "y" | sdkmanager "system-images;android-30;google_apis;x86_64"
-        echo "no" | avdmanager create avd -n testEmulator -k "system-images;android-30;google_apis;x86_64" --device "pixel"
-
-    - name: Start X virtual framebuffer
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y xvfb
-        export DISPLAY=:0
-        nohup Xvfb :0 -screen 0 1080x1920x24 > /dev/null 2>&1 &
-        sleep 3
-
-    - name: Launch emulator
-      env:
-        DISPLAY: :0
-      run: |
-        nohup emulator -avd testEmulator \
-          -no-audio -no-boot-anim -no-window \
-          -gpu swiftshader_indirect \
-          -read-only -no-snapshot-save -wipe-data \
-          > emulator.log 2>&1 &
-
-        echo "🕐 Waiting for emulator to appear via ADB..."
-        adb wait-for-device
-
-    - name: Wait for emulator to fully boot
-      run: |
-        echo "Waiting for emulator to fully boot..."
-        timeout=180
-        elapsed=0
-        boot_completed=""
-        until [[ "$boot_completed" == "1" || $elapsed -ge $timeout ]]; do
-          boot_completed=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
-          echo "boot_completed=$boot_completed (elapsed: ${elapsed}s)"
-          sleep 5
-          elapsed=$((elapsed + 5))
-        done
-
-        if [[ "$boot_completed" != "1" ]]; then
-          echo "❌ Emulator failed to boot in $timeout seconds."
-          adb devices
-          cat emulator.log || true
-          exit 1
-        fi
-
-        echo "✅ Emulator booted successfully."
-
     - name: Download APK from GitHub Release
       uses: dsaltares/fetch-gh-release-asset@master
       with:
-        repo: ${{ github.repository }}
-        file: your-app-release.apk    # ⬅️ Change this to your actual APK name
+        repo: steviebdesignstraining/Maestro_Luton_Retail
+        tag: v1.0.0
+        file: LutonRetail.apk
         token: ${{ secrets.GITHUB_TOKEN }}
         target: app.apk
 
-    - name: Install Maestro
-      run: |
-        curl -Ls "https://get.maestro.mobile.dev" | bash
-        echo "$HOME/.maestro/bin" >> $GITHUB_PATH
-        export PATH="$HOME/.maestro/bin:$PATH"
-        maestro --version
-
-    - name: Run Maestro test
-      run: |
-        maestro test .maestro --app app.apk
+    - name: Run Maestro tests using GitHub Action
+      uses: mobile-dev-inc/action-maestro-cloud@v1
+      with:
+        appId: app.apk
+        flow: .maestro    # Adjust if your Maestro folder has a different name
 
     - name: Upload Maestro Test Output
       if: always()
