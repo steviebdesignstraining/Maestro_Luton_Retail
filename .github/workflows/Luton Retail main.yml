@@ -28,12 +28,5 @@ jobs:
       uses: mobile-dev-inc/action-maestro-cloud@v1
       with:
         app-file: app.apk
-        project-id: ${{ secrets.LUTON_RETAIL }}        # ✅ Uses your actual secret name
-        workspace: Maestro/flow_android.yaml           # ✅ Your test flow file path
-
-    - name: Upload Maestro Test Output
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: maestro-test-output
-        path: .maestro/output/
+        project-id: ${{ secrets.LUTON_RETAIL }}
+        workspace: Maestro/flow_android.yaml
