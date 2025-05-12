@@ -19,16 +19,17 @@ jobs:
       uses: dsaltares/fetch-gh-release-asset@master
       with:
         repo: steviebdesignstraining/Maestro_Luton_Retail
-        tag: v1.0.0
+        version: v1.0.0
         file: LutonRetail.apk
         token: ${{ secrets.GITHUB_TOKEN }}
         target: app.apk
 
-    - name: Run Maestro tests using GitHub Action
+    - name: Run Maestro test on Maestro Cloud
       uses: mobile-dev-inc/action-maestro-cloud@v1
       with:
-        appId: app.apk
-        flow: .maestro    # Adjust if your Maestro folder has a different name
+        app-file: app.apk
+        project-id: ${{ secrets.LUTON_RETAIL }}        # ✅ Uses your actual secret name
+        workspace: Maestro/flow_android.yaml           # ✅ Your test flow file path
 
     - name: Upload Maestro Test Output
       if: always()
